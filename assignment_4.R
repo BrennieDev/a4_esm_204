@@ -13,11 +13,7 @@ data_wrm <- read.csv(here("data", "warming.csv")) %>% clean_names()
 #data_wrm %>% ggplot(aes(x = x, y = warming_pulse)) + geom_point() + stat_smooth(se = TRUE)
 
 # Variables
-pulse <- 3.5*10^9 # tons of CO2
-
-# Add in explicit y-intercept at 0?
-#data_dmg <- data_dmg %>% add_row(warming = 0, damages = 0, .before = 1)
-
+pulse <- 35*10^9 # tons of CO2
 
 ####
 # 1.
@@ -25,12 +21,13 @@ pulse <- 3.5*10^9 # tons of CO2
 
 # Fit quadratic model
 data_dmg <- data_dmg %>% mutate(warming_sq = warming^2)
-quad_dmg <- lm(damages ~ warming + warming_sq, data = data_dmg)
+quad_dmg <- lm(damages ~ warming + warming_sq + 0, data = data_dmg)
 #summary(quad_dmg)
 
 # Store output into funtion
 damages_model <- function(warming) {
-  quad_dmg$coefficients[["warming_sq"]]*(warming^2) + quad_dmg$coefficients[["warming_sq"]]*warming
+  out <- quad_dmg$coefficients[["warming_sq"]]*(warming^2) + quad_dmg$coefficients[["warming"]]*warming
+  return(out)
 }
 
 # Plot model over data points
@@ -80,19 +77,31 @@ data_wrm %>%
 # 3.
 ####
 
-# Lecture 11, ~23:55, PV = B/r ????
-# If Obama SCC = 51 using 3% discount rate
+# We need to somehow use the dmg_per_ton values from #2 Plot 4 to infer SCC
+# SCC = PV with carbon pulse - PV without carbon pulse
 
-# this is incorrect
-B <- 51 * 0.03
-
-scc_model <- function(rate_pct) {
-  B/(rate_pct/100)
+PV_calc <- function(values, discount_rate = 0.02) {
+  sum <- 0;
+  r <- discount_rate
+  for (i in c(1:length(values))) {
+    current <- values[i]/(1 + r)^i
+    sum <- sum + current
+  }
+  
+  return(sum)
 }
 
-ggplot(data = data.frame(x = 0), mapping = aes(x = x)) +
-  xlim(0.5, 10) +
-  stat_function(fun = scc_model, size = 2) +
+# discount rates representin 1% intervals between 1%-10%
+dr <- seq(0.01, .1, 0.005)
+
+
+PV_calc(data_wrm$dmg_per_ton, dr)
+
+scc_points <- data.frame(discount_rate <- dr, scc <- PV_calc(data_wrm$dmg_per_ton, dr))
+colnames(scc_points) <- c("discount_rate","scc")
+
+ggplot(data = scc_points, mapping = aes(x = discount_rate * 100, y = scc)) +
+  geom_point() +
   labs(x = "Discount Rate (%)", y = "SCC ($)")
 
 
@@ -109,18 +118,36 @@ ramsey_rule <- function(p, n, g) {
   p + n*g
 }
 
-rr_discount_pct <- ramsey_rule(p,n,g) * 100
-scc_rr <- scc_model(rr_discount_pct)
+rr_discount <- ramsey_rule(p,n,g)
+rr_scc <- PV_calc(data_wrm$dmg_per_ton, rr_discount)
 
-ggplot(data = data.frame(x = 0), mapping = aes(x = x)) +
-  xlim(0.5, 10) +
-  stat_function(fun = scc_model, size = 1) +
+# This will depend on #3
+# scc_rr <- scc_model(rr_discount_pct)
+ggplot(data = scc_points, mapping = aes(x = discount_rate * 100, y = scc)) +
+  geom_line() +
   labs(x = "Discount Rate (%)", y = "SCC ($)") +
-  geom_point(aes(x = rr_discount_pct, y = scc_rr), size = 3, col = "red")
+  geom_point(aes(x = rr_discount_pct, y = rr_scc), col = "red", size = 3)
 
 
 ####
 # 5.
 ####
 
+# Scenario A
+data_wrm <- data_wrm %>%
+  mutate(warming_baseline_150 = warming_baseline * 1.5) %>%
+  mutate(predicted_baseline_150 = damages_model(warming_baseline_150)) %>%
+  mutate(warming_baseline_2050 = 
+           case_when( year > 2050 ~ 1.29,
+                     TRUE ~ warming_baseline
+          )) %>% 
+  mutate(predicted_baseline_2050 = damages_model(warming_baseline_2050))
+  
 
+A_baseline <- PV_calc(data_wrm$predicted_baseline, 0.02)
+A_baseline_150 <- PV_calc(data_wrm$warming_baseline_150, 0.02)
+
+A_expected_value <- (A_baseline * 0.5) + (A_baseline_150 * 0.5)
+B_expected_value <- PV_calc(data_wrm$predicted_baseline_2050, 0.02)
+
+# How to get "max cost"
