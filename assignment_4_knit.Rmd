@@ -227,5 +227,5 @@ Expected present value of damages up to 2100: `r B_expected_value`
 
 If Policy A costs 0 and Policy B costs X, the value for X can be as high as `r max_cost` for it to still make economic sense to pursue B over A.
 
-If society were risk averse, we would expect ???
+If society were risk averse, we would expect it to pursue Policy B because their expected utility from Policy A would be lower than Policy B at a given “marginal payout” due to the uncertainty of Policy A's damages. In the context of this question the "marginal payout" would be the amount of money society is left with after paying climate change damages (e.g. GDP - Climate Change Damages). We can look at these savings as a “payout”.
 
