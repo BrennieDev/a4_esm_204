@@ -203,7 +203,7 @@ data_wrm <- data_wrm %>%
 
 # Calculate Present Value (PV) for the damages of each possibility in Scenario A
 A_baseline <- PV_calc(data_wrm$predicted_baseline, 0.02)
-A_baseline_150 <- PV_calc(data_wrm$warming_baseline_150, 0.02)
+A_baseline_150 <- PV_calc(data_wrm$predicted_baseline_150, 0.02)
 
 # Use their probabilities (each 50% likely to occur) to get a total value
 A_expected_value <- (A_baseline * 0.5) + (A_baseline_150 * 0.5)
